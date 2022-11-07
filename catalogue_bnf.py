@@ -1,63 +1,152 @@
-from bs4 import BeautifulSoup as bs
-import urllib.request as urlReq
+##############################################################
+### Web scraper pour des liens de numérisation sur Gallica ###
+##############################################################
+
+
+
+
+## Packages nécessaires au déroulement du programme
 import re
-
-############################################################################################################################################
-#### NB : Les cotes des manuscrits doivent être entrées sous la forme suivante: "langue+numéro" dans le fichier .csv ou .txt en entrée. ####
-#### Exemple : latin+6964                                                                                                               ####
-#### NB' : Pour les manuscrits français, il faut écrire "francais", sans la cédille dans votre fichier.                                 ####
-############################################################################################################################################
+import urllib.request as url_req
+from bs4 import BeautifulSoup as bs
 
 
-fichierCorpus = input("Entrez le chemin et le nom du fichier où sont stockés les cotes des documents qui vous intérssent (sous la forme : \"C:/Users/nomUtilisateur/Emplacement/Dossier/nomFichier.txt\").")
-fichierSortie = input("Entrez le chemin où vous souhaitez enregistrer le fichier qui sera créé avec les liens vers les numérisations, ainsi que le nom de ce nouveau fichier (sous la forme : \"C:/Users/nomUtilisateur/Emplacement/Dosseir/nomFichier.txt\").")
-
-corpus = open(fichierCorpus, "r+").read() # Ouverture et lecture du fichier source, à partir de la saisie de l'utilisateur, dans lequel on va chercher les cotes des documents pour lesquels on souhaite connaître s'il existe une numérisation.
-listeLiensNumerisations = open(fichierSortie, "w") # Définition, à partir de la saisie de l'utilisateur, du fichier de sortie dans lequel les liens de numérisation seront renseignés.
 
 
-langue = ""
-listeLanguesFonds = []
+## Ensemble des fonctions nécessaires à l'exécution du programme
+def langue(seq: str, sep: str) -> list[str]:
+    """Précondition : len(c) = 1
+    Retourne une liste de langues à partir d'une chaîne de caractères listant les langues
+    avec un caractère unique et spécifique pour séparer les langues.
+    """
 
+    LR: list[str] = []  # Liste résultat
+    t: str = ''  # Séquence temporaire de stockage des langues
 
-# Boucle permettant d'entrer manuellement les langues définissant les fonds concernés par la recherche de lien vers une numérisation des documents, jusqu'à la saisie de "FIN". #
-while langue != "FIN":
-    langue = input("Entrez les langues des fonds dans lesquels vous cherchez des manuscrits(francais - attention sans la cédille -, latin, arabe, etc.). Entrez : \"FIN\", pour terminer la saisie.")
-    if langue != "FIN":
-        listeLanguesFonds.append(langue) # Ajout de l'ensemble des langues saisies dans une liste.
-    else:
-        print(listeLanguesFonds) # Elément de contrôle, permettant à l'utilisateur de voir la liste des langues qu'il a entré et ainsi de pouvoir relancer le programme après, en cas de faute de frappe qui sera ainsi rapidement identifiée.
-
-
-## MACRO-BOUCLE : permet pour chaque langue entrée de récupérer les cotes dans le fichier source, de construire les URL de recherche, d'accéder à la notice du document et de récupérer l'URL de la numérisation de ce dernier, si elle existe. Sinon le programme renvoie qu'il n'existe pas de numérisation. Si un problème s'est produit le programme peut renvoyer un message signifiant qu'il n'a pas trouvé la notice et ainsi renseigner l'utilisateur sur la nature du problème. ##
-# Boucle permettant de construire l'expression régulière (ou les expressions) qui vont permettre de récupérer les cotes dans manuscrits dans le fichier source. #
-for chaqueLangue in listeLanguesFonds:
-    RegExCote = chaqueLangue + "\+\d+"
-    coteBNF = re.finditer(RegExCote, corpus)
-    # Boucle permettant de reconstituer les URL de recherche (spécifique à la cote) et de trouver dans la page web l'emplacement du potentiel lien vers la page web de la notice du document. #
-    for chaqueCoteBNF in coteBNF:
-        coteCible = chaqueCoteBNF.group(0)
-        print(coteCible) # Elément de contrôle pour que l'utilisateur puisse voir en temps réel les cotes trouvées dans le fichier source par le programme.
-        BaseURL = "https://archivesetmanuscrits.bnf.fr/" # Base de l'URL qui sert à la fois pour la page web de la recherche et dans celle de la notice.
-        partie1url = "resultatRechercheSimple.html?TEXTE_LIBRE_INPUT=" # Partie invariable de l'URL de la page web de la recherche.
-        partie2url = "&FACET_TROUVE_DANS_SELECTED=COTE_INPUT&COTE_INPUT=" # Partie invariable de l'URL de la page web de la recherche.
-        urlRecherche = BaseURL + partie1url + coteCible + partie2url + coteCible # Constitution de l'URL de recherche à partir de la partie de base du site web, des parties invariables des pages de recherches et des cotes (parties variables des URL).
-        print(urlRecherche) # Elément de contrôle qui affiche les URL des notices en temps réel, permettant à l'utilisateur de vérifier simplement le bon fonctionnement des URL construites par le programme.
-        lienRecherche = urlReq.urlopen(urlRecherche)
-        soupeCote = bs(lienRecherche)
-        resultatRecherche = soupeCote.find("a", title="Consulter ce résultat")
-        # Boucle permettant de trouver le lien de la page web de la notice du document (retour d'un message d'erreur dans le fichier de sortie quand cette page n'a pas été trouvée pour éviter une erreur qui arrêterait l'exécution du programme) et de trouver l'emplacement du potentiel lien vers une numérisation du document. #
-        if resultatRecherche:
-            LienRelatifNotice = resultatRecherche["href"]
-            urlNotice = BaseURL + LienRelatifNotice
-            LienNotice = urlReq.urlopen(urlNotice)
-            soupeNotice = bs(LienNotice)
-            resultatNumerisation = soupeNotice.find("a", title="Voir le document numérisé")
-            # Boucle permettant d'accéder à l'URL de la numérisation du document, si elle existe, et qui l'inscrit dans le fichier de sortie. Si elle n'existe pas, le programme inscrit qu'il n'existe pas de numérisation disponible du document. #
-            if resultatNumerisation:
-                LienNumerisation = resultatNumerisation["href"]
-                listeLiensNumerisations.write(str(coteCible) + " : " + str(LienNumerisation) + "\n") # L'enregistrement dans le fichier de sortie précise à chaque fois la cote du document avant le lien vers sa numérisation, ou l'un des deux messages d'erreur possible.
-            else:
-                listeLiensNumerisations.write(str(coteCible) + " : " + "aucun lien vers une numérisation" + "\n")
+    e: str  # Elément de parcours
+    for e in seq:
+        if e != sep:
+            t = t + e
         else:
-            listeLiensNumerisations.write(str(coteCible) + " : " + "aucun lien vers une notice" + "\n")
+            LR.append(t)
+            t = ''
+    if t != '':
+        LR.append(t)
+
+    return LR
+
+
+# Jeu de tests
+assert langue('latin.francais.anglais', '.') == ['latin', 'francais', 'anglais']
+assert langue('', ' ') == []
+assert langue('ethiopien norrois arabe', ' ') == ['ethiopien', 'norrois', 'arabe']
+
+
+def regex_cote(LL: list[str]) -> list[str]:
+    """Retourne une liste d'expressions régulières (chaînes de caractères) pour chaque langue de la liste LL.
+    """
+
+    LR: list[str] = []  # Liste résultat
+    t: str = ''  # Séquence temporaire de stockage des langues
+
+    e: str  # Elément de parcours
+    for e in LL:
+        t = e + '\+\d+'
+        LR.append(t)
+
+    return LR
+
+
+# Jeu de tests
+assert regex_cote(['latin', 'francais', 'anglais']) == ['latin\+\d+', 'francais\+\d+', 'anglais\+\d+']
+assert regex_cote([]) == []
+
+
+def extraction_cotes(LRe: list[str], fichier: str) -> list[str]:
+    """Précondition : LRe contient des RegEx (Expressions régulières)
+    Précondition : fichier correspond à un chemin et un document au format .txt (ex : "C:/documents/mon_fichier.txt")
+    Retourne une liste de cotes de manuscrits trouvées dans un fichier .txt à partir d'une liste de RegEx.
+    """
+
+    corpus = open(fichier, 'r+').read()
+    LR: list[str] = []
+
+    e: str # élément de parcours
+    for e in LRe:
+        LR = LR + re.findall(e, corpus)
+
+    return LR
+
+
+# Jeu de tests
+assert extraction_cotes(['latin\+\d+', 'arabe\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test1.txt') == [
+    'latin+47', 'latin+25']
+assert extraction_cotes(['latin\+\d+', 'francais\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test2.txt') == [
+    'latin+32', 'latin+158', 'francais+4']
+assert extraction_cotes(['latin\+\d+', 'francais\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test3.txt') == []
+
+
+
+def ecriture_sortie(LC: list[str], fichier: str) -> None:
+    """Précondition : le fichier en entrée est au format .txt
+    Précondition : le fichier en sortie est au format .txt
+    Précondition : les cotes sont renseingées dans le fichier en entrée selon la forme 'langue+numéro' (ex : latin+154)
+
+    Retourne dans un fichier .txt une liste d'URL de documents de la BnF numérisés ou non sur Gallica
+    à partir d'une liste de cotes dans un fichier .txt.
+    """
+
+    fichier_sortie = open(fichier, 'w')
+
+    url_base = 'https://archivesetmanuscrits.bnf.fr/'
+    url_part1 = 'resultatRechercheSimple.html?TEXTE_LIBRE_INPUT='
+    url_part2 = '&FACET_TROUVE_DANS_SELECTED=COTE_INPUT&COTE_INPUT='
+
+    e: str # élément de parcours
+    for e in LC:
+
+        url_recherche: str = url_base + url_part1 + e + url_part2 + e
+        recherche_catalogue = url_req.urlopen(url_recherche)
+        soupe_recherche_catalogue = bs(recherche_catalogue)
+
+        lien_notice = soupe_recherche_catalogue.find('a', title='Consulter ce résultat')
+
+        if lien_notice:
+
+            lien = lien_notice['href']
+            url_notice: str = url_base + lien
+            notice = url_req.urlopen(url_notice)
+            soupe_num = bs(notice)
+
+            num = soupe_num.find('a', title='Voir le document numérisé')
+
+            if num:
+
+                fichier_sortie.write(e + " : " + str(num['href']) + "\n")
+
+            else:
+
+                fichier_sortie.write(e + " : " + "aucun lien vers une numérisation" + "\n")
+
+        else:
+
+            fichier_sortie.write(e + " : " + "aucun lien vers une notice" + "\n")
+
+    return None
+
+# La fonction 'ecriture_sortie' n'est pas testée car elle renvoie un type 'None'.
+
+
+
+
+## Déroulement du programme
+langues_recherchees = input('Entrez une liste de cotes avec un séparateur unique.')
+separateur = input('Entrez le caractère qui a servi de sépérateur précédemment.')
+
+fichier_entree = input('Entrez le chemin du fichier en entrée.')
+fichier_sortie = input('Entrez le chemin du fichier en sortie.')
+
+liste_langue: list[str] = langue(langues_recherchees, separateur)
+re_langues: list[str] = regex_cote(liste_langue)
+liste_cotes: list[str] = extraction_cotes(re_langues, fichier_entree)
+ecriture_sortie(liste_cotes, fichier_sortie)
