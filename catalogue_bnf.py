@@ -78,12 +78,7 @@ def extraction_cotes(LRe: list[str], fichier: str) -> list[str]:
     return LR
 
 
-# Jeu de tests
-assert extraction_cotes(['latin\+\d+', 'arabe\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test1.txt') == [
-    'latin+47', 'latin+25']
-assert extraction_cotes(['latin\+\d+', 'francais\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test2.txt') == [
-    'latin+32', 'latin+158', 'francais+4']
-assert extraction_cotes(['latin\+\d+', 'francais\+\d+'], 'C:/Users/Pierre/Documents/Gallica-Prgm-Tests/test3.txt') == []
+# Aucun test chemin dépend de la machine de l'utilisateur
 
 
 
